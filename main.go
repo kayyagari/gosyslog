@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"golog/server"
+	"gosyslog/server"
 	"os"
 )
 

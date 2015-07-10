@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gosyslog/server"
 	"os"
+	sysmsg "gosyslog/message"
 )
 
 func main() {
@@ -13,5 +14,6 @@ func main() {
 	}
 
 	host := os.Args[1]
+	fmt.Println(sysmsg.Kern);
 	server.Start(host)
 }

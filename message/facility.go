@@ -1,9 +1,9 @@
 package message
 
 type Facility struct {
-	code int
+	code    int
 	Keyword string
-	Descr string
+	Descr   string
 }
 
 var Kern = Facility{code: 0, Keyword: "kern", Descr: "kernel messages"}

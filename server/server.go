@@ -1,13 +1,16 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os"
 )
 
+var maxLen int = 1024
+
 func Start(host string) {
-	listener, err := net.Listen("tcp", host)
+	listener, err := net.Listen("udp", host)
 	if err != nil {
 		fmt.Println("Error while listening at host", err.Error())
 		os.Exit(2)
@@ -25,7 +28,7 @@ func Start(host string) {
 func handleClient(conn net.Conn) {
 	defer close(conn)
 
-	var buf [128]byte
+	var buf [maxLen]byte
 	for {
 		n, rerr := conn.Read(buf[0:])
 		if rerr != nil {
@@ -35,11 +38,7 @@ func handleClient(conn net.Conn) {
 			return
 		}
 
-		_, werr := conn.Write(buf[0:n])
-		if werr != nil {
-			fmt.Println("Failed to write the data", werr.Error())
-			return
-		}
+		go Parse(bytes.NewBuffer(buf))
 	}
 }
 

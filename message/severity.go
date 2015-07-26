@@ -1,9 +1,9 @@
 package message
 
 type Severity struct {
-	code int
+	code    int
 	Keyword string
-	Descr string
+	Descr   string
 }
 
 var Emergency = Severity{code: 0, Keyword: "emerg", Descr: "system is unusable"}

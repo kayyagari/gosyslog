@@ -28,7 +28,7 @@ func Start(host string) {
 func handleClient(conn net.Conn) {
 	defer close(conn)
 
-	var buf [maxLen]byte
+	buf := make([]byte, maxLen)
 	for {
 		n, rerr := conn.Read(buf[0:])
 		if rerr != nil {

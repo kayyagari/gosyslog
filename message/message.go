@@ -8,13 +8,13 @@ import (
  * HEADER = PRI VERSION SP TIMESTAMP SP HOSTNAME SP APP-NAME SP PROCID SP MSGID
  */
 type Header struct {
-	pri       int
-	version   int
-	timestamp time.Time
-	hostname  string
-	appname   string
-	procid    string
-	msgid     string
+	Pri       int
+	Version   int
+	Timestamp time.Time
+	Hostname  string
+	Appname   string
+	Procid    string
+	Msgid     string
 }
 
 /*
@@ -44,7 +44,7 @@ type StrctData struct {
  * SYSLOG-MSG = HEADER SP STRUCTURED-DATA [SP MSG]
  */
 type Message struct {
-	header Header
-	sData  StrctData
-	msg    []byte
+	Header Header
+	SData  StrctData
+	RawMsg []byte
 }

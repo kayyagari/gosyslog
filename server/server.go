@@ -38,7 +38,7 @@ func handleClient(conn net.Conn) {
 			return
 		}
 
-		go Parse(bytes.NewBuffer(buf))
+		go Parse(bytes.NewBuffer(buf[0:n]))
 	}
 }
 

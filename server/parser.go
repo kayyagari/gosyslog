@@ -3,8 +3,9 @@ package server
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	sysmsg "gosyslog/message"
-	"io"
+	_ "io"
 	"strconv"
 	"strings"
 	"time"
@@ -62,7 +63,7 @@ func parseHeader(buf *bytes.Buffer) (sysmsg.Header, error) {
 	procId := getToken(buf)
 	msgId := getToken(buf)
 
-	return sysmsg.Header{pri, ver, timestamp, hostName, procId, appName, msgId}, nil
+	return sysmsg.Header{pri, ver, timestamp, hostName, appName, procId, msgId}, nil
 }
 
 func parseTime(buf *bytes.Buffer) (time.Time, error) {
@@ -95,10 +96,12 @@ func parseTime(buf *bytes.Buffer) (time.Time, error) {
 }
 
 func getToken(buf *bytes.Buffer) string {
-	token, err := buf.ReadString(' ')
-	if err == io.EOF {
-		panic("EOF while trying to read token")
-	}
+	token, _ := buf.ReadString(' ')
+
+	//if err == io.EOF {
+	//	panic("EOF while trying to read token")
+	//}
+
 	token = strings.TrimSpace(token)
 
 	// check if the value is nil
@@ -106,5 +109,6 @@ func getToken(buf *bytes.Buffer) string {
 		return ""
 	}
 
+	fmt.Println("parsed token ", token)
 	return token
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 	//sysmsg "gosyslog/message"
@@ -46,4 +47,38 @@ func TestParseValidHeader(t *testing.T) {
 	if header.Msgid != "ID47" {
 		t.Errorf("Msgid didn't match")
 	}
+}
+
+func TestParseBadHeader(t *testing.T) {
+	_, err := ParseString("<340")
+	if err != NoPriErr {
+		t.Errorf("Must fail with NoPriErr")
+	}
+
+	_, err = ParseString("340>")
+	if err != PriParseErr {
+		t.Errorf("Must fail with PriParseErr")
+	}
+
+	_, err = ParseString("<3401>")
+	if err != BadPriErr {
+		t.Errorf("Must fail with BadPriErr")
+	}
+
+	_, err = ParseString("<1>1234")
+	if err != BadVerErr {
+		t.Errorf("Must fail with BadVerErr")
+	}
+
+	_, err = ParseString("<1>1a")
+	if err != VerParseErr {
+		t.Errorf("Must fail with VerParseErr")
+	}
+
+	//PRI VERSION SP TIMESTAMP SP HOSTNAME SP APP-NAME SP PROCID SP MSGID
+	_, err = ParseString("<1>1 - - - -")
+	if err != io.EOF {
+		t.Errorf("Must fail with EOF", err)
+	}
+
 }

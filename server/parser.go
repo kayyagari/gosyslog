@@ -19,6 +19,7 @@ var NoVerErr = errors.New("Invalid header, does not contain version number")
 var TimeMillisErr = errors.New("Invalid timestamp format, misplaced milliseconds")
 var TimeNanoErr = errors.New("Invalid timestamp format, TIME-SECFRAC is in nanoseconds")
 var BadVerErr = errors.New("Invalid header, version value cannot contain more than 2 digits")
+var BadSDErr = errors.New("Invalid SData")
 
 func ParseString(logMsg string) (sysmsg.Message, error) {
 	buf := bytes.NewBufferString(logMsg)
@@ -26,7 +27,7 @@ func ParseString(logMsg string) (sysmsg.Message, error) {
 }
 
 func Parse(buf *bytes.Buffer) (sysmsg.Message, error) {
-	header, err := parseHeader(buf)
+	header, err := ParseHeader(buf)
 	if err != nil {
 		var s sysmsg.Message
 		return s, err
@@ -37,7 +38,70 @@ func Parse(buf *bytes.Buffer) (sysmsg.Message, error) {
 	return msg, nil
 }
 
-func parseHeader(buf *bytes.Buffer) (sysmsg.Header, error) {
+func ParseSdata(buf *bytes.Buffer) (sysmsg.StrctData, error) {
+	var sData sysmsg.StrctData
+	startChar, _, err := buf.ReadRune()
+
+	if err != null {
+		return sData, err
+	}
+	// [ = 91
+	// ] = 93
+	// \ = 92
+
+	// if it doesn't start with '[' return error
+	if startChar != 91 {
+		return sData, BadSDErr
+	}
+
+	//[exampleSDID iut="3" eventSource="Application" eventID="1011"][examplePriority@32473 class="high"]
+	var prevChar rune
+	var param sysmsg.SDParam
+	var element sysmsg.SDElement
+
+	slice := make([]rune, 0, 128)
+
+	var readVal bool
+
+loop:
+	for {
+		startChar, _, err := buf.ReadRune()
+
+		switch {
+		case startChar == '\\':
+			// check the next char it must be an escape char
+			nextChar, _, err := buf.ReadRune()
+			if err != null {
+				return nil, err
+			}
+
+			if nextChar != '\\' || nextChar != '"' || nextChar != ']' {
+				append(slice, startChar)
+			}
+
+			append(slice, nextChar)
+
+			break loop
+
+		case startChar == '[':
+			element = sysmsg.SDElement{}
+			//element.Id =
+			break
+
+		case startChar == '"':
+			if !readVal {
+			}
+			break
+
+		}
+
+		prevChar = startChar
+	}
+
+	return sData, nil
+}
+
+func ParseHeader(buf *bytes.Buffer) (sysmsg.Header, error) {
 	prefix, err := getToken(buf)
 
 	var h sysmsg.Header

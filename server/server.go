@@ -30,7 +30,7 @@ func handleClient(conn net.Conn) {
 
 	buf := make([]byte, maxLen)
 	for {
-		n, rerr := conn.Read(buf[0:])
+		n, rerr := conn.Read(buf)
 		if rerr != nil {
 			if rerr.Error() != "EOF" {
 				fmt.Println("Failed to read the data", rerr.Error())

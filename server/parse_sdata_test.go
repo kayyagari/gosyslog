@@ -4,7 +4,7 @@ import (
 	"bytes"
 	_ "fmt"
 	sysmsg "gosyslog/message"
-	_ "io"
+	"io"
 	"testing"
 )
 
@@ -60,6 +60,18 @@ func TestParseInvalidSData(t *testing.T) {
 	checkBadSData(t, buf)
 	buf = bytes.NewBufferString("[wrongCharIn]Id k=\"v\"]")
 	checkBadSData(t, buf)
+
+	// empty SDdata
+	buf = bytes.NewBufferString("[]")
+	checkBadSData(t, buf)
+
+	// incomplete SData
+	buf = bytes.NewBufferString("[")
+	_, err = ParseSData(buf)
+	if err != io.EOF {
+		t.Errorf("Must fail with EOF")
+	}
+
 }
 
 func checkBadSData(t *testing.T, buf *bytes.Buffer) {

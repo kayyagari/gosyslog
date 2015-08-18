@@ -47,4 +47,5 @@ type Message struct {
 	Header Header
 	SData  *StrctData
 	RawMsg []byte
+	IsUtf8 bool
 }

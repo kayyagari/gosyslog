@@ -20,6 +20,7 @@ var TimeMillisErr = errors.New("Invalid timestamp format, misplaced milliseconds
 var TimeNanoErr = errors.New("Invalid timestamp format, TIME-SECFRAC is in nanoseconds")
 var BadVerErr = errors.New("Invalid header, version value cannot contain more than 2 digits")
 var BadSDErr = errors.New("Invalid SData")
+var BadMsgData = errors.New("Invalid Message Format")
 
 func ParseString(logMsg string) (*sysmsg.Message, error) {
 	buf := bytes.NewBufferString(logMsg)
@@ -37,9 +38,52 @@ func Parse(buf *bytes.Buffer) (*sysmsg.Message, error) {
 		return nil, err
 	}
 
-	var rawMsg []byte
-	msg := &sysmsg.Message{header, sd, rawMsg}
+	msg := &sysmsg.Message{header, sd, nil, false}
+
+	data, err := readRawMsgBytes(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	if data != nil && len(data) >= 3 {
+		// check for BOM - EF.BB.BF
+		if data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+			data = data[3:]
+			msg.IsUtf8 = true
+		}
+	}
+
+	msg.RawMsg = data
+
 	return msg, nil
+}
+
+func readRawMsgBytes(buf *bytes.Buffer) ([]byte, error) {
+	spChar, _, err := buf.ReadRune()
+	if err == io.EOF {
+		return nil, nil
+	}
+
+	// see if there is a space char
+	if spChar != ' ' {
+		return nil, BadMsgData
+	}
+
+	nilChar, _, err := buf.ReadRune()
+	if err == io.EOF {
+		return nil, nil
+	}
+
+	// see if there is a nil char
+	if nilChar == '-' {
+		return nil, nil
+	}
+
+	buf.UnreadRune()
+
+	data := buf.Next(buf.Len())
+
+	return data, nil
 }
 
 func ParseSData(buf *bytes.Buffer) (*sysmsg.StrctData, error) {
@@ -52,6 +96,10 @@ func ParseSData(buf *bytes.Buffer) (*sysmsg.StrctData, error) {
 	// [ = 91
 	// ] = 93
 	// \ = 92
+
+	if startChar == '-' {
+		return nil, nil
+	}
 
 	// if it doesn't start with '[' return error
 	if startChar != 91 {
@@ -73,7 +121,7 @@ loop:
 
 		if err == io.EOF && endSData {
 			return sData, nil
-		}else if err != nil {
+		} else if err != nil {
 			return sData, err
 		}
 

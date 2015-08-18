@@ -2,7 +2,7 @@ package server
 
 import (
 	"bytes"
-	_ "fmt"
+	"fmt"
 	sysmsg "gosyslog/message"
 	"io"
 	"testing"
@@ -77,6 +77,48 @@ func TestParseBadHeader(t *testing.T) {
 	_, err = parseHeaderString("<1>1 - - - -")
 	if err != io.EOF {
 		t.Errorf("Must fail with EOF", err)
+	}
+}
+
+func TestParseMessage(t *testing.T) {
+	headerAndSd := "<34>1 2003-10-11T22:14:15.003Z localhost su 1 ID47 - "
+	buf := bytes.NewBufferString(headerAndSd)
+	bom := []byte{0xEF, 0xBB, 0xBF}
+	buf.Write(bom)
+
+	data := []byte("abc")
+	buf.Write(data)
+
+	fmt.Println()
+
+	msg, err := Parse(buf)
+	if err != nil {
+		t.Errorf("Message parsing should not fail", err)
+	}
+
+	if msg == nil {
+		t.Errorf("Message parsing failed")
+	}
+
+	if !msg.IsUtf8 {
+		t.Errorf("Message data must be parsed as UTF8")
+	}
+
+	if bytes.Compare(msg.RawMsg, data) != 0 {
+		t.Errorf("Raw message data is not identical")
+	}
+
+	// non-UTF8
+	buf = bytes.NewBufferString(headerAndSd)
+	buf.Write(data)
+
+	msg, err = Parse(buf)
+	if msg.IsUtf8 {
+		t.Errorf("Message data must NOT be parsed as UTF8")
+	}
+
+	if bytes.Compare(msg.RawMsg, data) != 0 {
+		t.Errorf("Raw message data is not identical")
 	}
 }
 

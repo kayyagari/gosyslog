@@ -2,18 +2,17 @@ package server
 
 import (
 	"bytes"
-	"fmt"
+	_ "fmt"
+	sysmsg "gosyslog/message"
 	"io"
 	"testing"
 	"time"
-	//sysmsg "gosyslog/message"
 )
 
 func TestParseValidHeader(t *testing.T) {
 	buf := bytes.NewBufferString("<34>1 2003-10-11T22:14:15.003Z mymachine.example.com su - ID47")
-	msg, err := Parse(buf)
+	header, err := ParseHeader(buf)
 
-	header := msg.Header
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -35,7 +34,6 @@ func TestParseValidHeader(t *testing.T) {
 		t.Errorf("Hostname didn't match")
 	}
 
-	fmt.Println("Appname ", header.Appname)
 	if header.Appname != "su" {
 		t.Errorf("Appname didn't match")
 	}
@@ -50,35 +48,39 @@ func TestParseValidHeader(t *testing.T) {
 }
 
 func TestParseBadHeader(t *testing.T) {
-	_, err := ParseString("<340")
+	_, err := parseHeaderString("<340")
 	if err != NoPriErr {
 		t.Errorf("Must fail with NoPriErr")
 	}
 
-	_, err = ParseString("340>")
+	_, err = parseHeaderString("340>")
 	if err != PriParseErr {
 		t.Errorf("Must fail with PriParseErr")
 	}
 
-	_, err = ParseString("<3401>")
+	_, err = parseHeaderString("<3401>")
 	if err != BadPriErr {
 		t.Errorf("Must fail with BadPriErr")
 	}
 
-	_, err = ParseString("<1>1234")
+	_, err = parseHeaderString("<1>1234")
 	if err != BadVerErr {
 		t.Errorf("Must fail with BadVerErr")
 	}
 
-	_, err = ParseString("<1>1a")
+	_, err = parseHeaderString("<1>1a")
 	if err != VerParseErr {
 		t.Errorf("Must fail with VerParseErr")
 	}
 
 	//PRI VERSION SP TIMESTAMP SP HOSTNAME SP APP-NAME SP PROCID SP MSGID
-	_, err = ParseString("<1>1 - - - -")
+	_, err = parseHeaderString("<1>1 - - - -")
 	if err != io.EOF {
 		t.Errorf("Must fail with EOF", err)
 	}
+}
 
+func parseHeaderString(logMsg string) (sysmsg.Header, error) {
+	buf := bytes.NewBufferString(logMsg)
+	return ParseHeader(buf)
 }

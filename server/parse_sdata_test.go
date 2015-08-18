@@ -9,7 +9,7 @@ import (
 )
 
 func TestParseValidSData(t *testing.T) {
-	buf := bytes.NewBufferString("[exampleSDID iut=\"7\" eventSource=\"Application\" eventID=\"101\"][examplePriority class=\"high\"] ")
+	buf := bytes.NewBufferString("[exampleSDID iut=\"7\" eventSource=\"Application\" eventID=\"101\"][examplePriority class=\"high\"]")
 	sdata, err := ParseSData(buf)
 	verifyBasicState(t, sdata, err, 2)
 
@@ -42,14 +42,14 @@ func TestParseValidSData(t *testing.T) {
 }
 
 func TestParseInvalidSData(t *testing.T) {
-	buf := bytes.NewBufferString("[quoteInValue k=\"v\\\"\"] abc xyz")
+	buf := bytes.NewBufferString("[quoteInValue k=\"v\\\"\"]")
 	sdata, err := ParseSData(buf)
 	verifyBasicState(t, sdata, err, 1)
 	sdElem := sdata.Elements[0]
 	sdParams := sdElem.Params
 	verifySDParam(t, &sdParams[0], "k", "v\"")
 
-	buf = bytes.NewBufferString("[valueWithBadEscape k=\"v\\|\"] ")
+	buf = bytes.NewBufferString("[valueWithBadEscape k=\"v\\|\"]")
 	sdata, err = ParseSData(buf)
 	verifyBasicState(t, sdata, err, 1)
 	sdElem = sdata.Elements[0]
@@ -58,7 +58,7 @@ func TestParseInvalidSData(t *testing.T) {
 
 	buf = bytes.NewBufferString("[spaceAtEndErr k=\"v\" ]")
 	checkBadSData(t, buf)
-	buf = bytes.NewBufferString("[wrongCharIn]Id k=\"v\" ]")
+	buf = bytes.NewBufferString("[wrongCharIn]Id k=\"v\"]")
 	checkBadSData(t, buf)
 }
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	sysmsg "gosyslog/message"
-	_ "io"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -21,28 +21,32 @@ var TimeNanoErr = errors.New("Invalid timestamp format, TIME-SECFRAC is in nanos
 var BadVerErr = errors.New("Invalid header, version value cannot contain more than 2 digits")
 var BadSDErr = errors.New("Invalid SData")
 
-func ParseString(logMsg string) (sysmsg.Message, error) {
+func ParseString(logMsg string) (*sysmsg.Message, error) {
 	buf := bytes.NewBufferString(logMsg)
 	return Parse(buf)
 }
 
-func Parse(buf *bytes.Buffer) (sysmsg.Message, error) {
+func Parse(buf *bytes.Buffer) (*sysmsg.Message, error) {
 	header, err := ParseHeader(buf)
 	if err != nil {
-		var s sysmsg.Message
-		return s, err
+		return nil, err
 	}
-	var sd sysmsg.StrctData
+
+	sd, err := ParseSData(buf)
+	if err != nil {
+		return nil, err
+	}
+
 	var rawMsg []byte
-	msg := sysmsg.Message{header, sd, rawMsg}
+	msg := &sysmsg.Message{header, sd, rawMsg}
 	return msg, nil
 }
 
-func ParseSdata(buf *bytes.Buffer) (sysmsg.StrctData, error) {
-	var sData sysmsg.StrctData
+func ParseSData(buf *bytes.Buffer) (*sysmsg.StrctData, error) {
+	var sData *sysmsg.StrctData
 	startChar, _, err := buf.ReadRune()
 
-	if err != null {
+	if err != nil {
 		return sData, err
 	}
 	// [ = 91
@@ -54,51 +58,156 @@ func ParseSdata(buf *bytes.Buffer) (sysmsg.StrctData, error) {
 		return sData, BadSDErr
 	}
 
+	buf.UnreadRune()
+
+	// now, there exists SData, parse it
+	readSData := true
+	endSData := false
 	//[exampleSDID iut="3" eventSource="Application" eventID="1011"][examplePriority@32473 class="high"]
-	var prevChar rune
-	var param sysmsg.SDParam
 	var element sysmsg.SDElement
-
-	slice := make([]rune, 0, 128)
-
-	var readVal bool
+	var readParam bool
 
 loop:
 	for {
 		startChar, _, err := buf.ReadRune()
 
+		if err == io.EOF && endSData {
+			return sData, nil
+		}else if err != nil {
+			return sData, err
+		}
+
+		switch {
+		case startChar == '[' || readSData:
+			//fmt.Println("begin SData")
+			readSData = false
+			endSData = false
+			id, err := parseSDName(buf, ' ')
+			//fmt.Println("Parsed ID ", id)
+			if err != nil {
+				return sData, err
+			}
+			element = sysmsg.SDElement{}
+			element.Id = id
+			element.Params = make([]sysmsg.SDParam, 0, 2)
+			readParam = true
+			break
+
+		case startChar == ' ' || readParam:
+			//fmt.Println("begin SData SP")
+
+			// step back one char
+			if readParam {
+				buf.UnreadRune()
+			}
+
+			readParam = false
+			if endSData {
+				break loop
+			}
+
+			name, err := parseSDName(buf, '=')
+			if err != nil {
+				return sData, err
+			}
+
+			val, err := parseSDParamVal(buf)
+			if err != nil {
+				return sData, err
+			}
+
+			param := sysmsg.SDParam{name, val}
+			element.Params = append(element.Params, param)
+
+			break
+
+		case startChar == ']':
+			//fmt.Println("end SData")
+			endSData = true
+			if sData == nil {
+				sData = &sysmsg.StrctData{}
+				sData.Elements = make([]sysmsg.SDElement, 0, 2)
+			}
+
+			sData.Elements = append(sData.Elements, element)
+			continue loop
+		}
+	}
+
+	fmt.Println("completed parsing SData", sData)
+
+	return sData, nil
+}
+
+func parseSDParamVal(buf *bytes.Buffer) (string, error) {
+	slice := make([]rune, 0, 128)
+	firstQuote := true
+
+	for {
+		startChar, _, err := buf.ReadRune()
+		if err != nil {
+			return "", err
+		}
+
 		switch {
 		case startChar == '\\':
 			// check the next char it must be an escape char
 			nextChar, _, err := buf.ReadRune()
-			if err != null {
-				return nil, err
+			if err != nil {
+				return "", err
 			}
 
-			if nextChar != '\\' || nextChar != '"' || nextChar != ']' {
-				append(slice, startChar)
+			if nextChar != '\\' && nextChar != '"' && nextChar != ']' {
+				slice = append(slice, startChar)
 			}
 
-			append(slice, nextChar)
-
-			break loop
-
-		case startChar == '[':
-			element = sysmsg.SDElement{}
-			//element.Id =
+			slice = append(slice, nextChar)
 			break
 
 		case startChar == '"':
-			if !readVal {
+			if !firstQuote {
+				return string(slice), nil
+			}
+
+			if firstQuote {
+				firstQuote = false
 			}
 			break
 
+		default:
+			slice = append(slice, startChar)
+			break
 		}
-
-		prevChar = startChar
 	}
 
-	return sData, nil
+}
+
+//SD-NAME = 1*32PRINTUSASCII ; except '=', SP, ']', %d34 (")
+func parseSDName(buf *bytes.Buffer, delim rune) (string, error) {
+	var count int
+	slice := make([]rune, 0, 32)
+	for {
+		char, _, err := buf.ReadRune()
+		count = count + 1
+		if err != nil {
+			return "", err
+		}
+
+		if count > 32 {
+			return "", BadSDErr
+		}
+
+		switch char {
+		case ']', '"':
+			return "", BadSDErr
+
+		case delim:
+			return string(slice), nil
+
+		default:
+			slice = append(slice, char)
+		}
+	}
 }
 
 func ParseHeader(buf *bytes.Buffer) (sysmsg.Header, error) {
@@ -227,6 +336,6 @@ func getToken(buf *bytes.Buffer) (string, error) {
 		return "", err
 	}
 
-	fmt.Println("parsed token ", token)
+	//fmt.Println("parsed token ", token)
 	return token, err
 }

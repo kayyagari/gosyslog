@@ -21,23 +21,23 @@ type Header struct {
  * SD-PARAM = PARAM-NAME "=" %d34 PARAM-VALUE %d34
  */
 type SDParam struct {
-	name  string
-	value string
+	Name  string
+	Value string
 }
 
 /*
  * SD-ELEMENT = "[" SD-ID *(SP SD-PARAM) "]"
  */
 type SDElement struct {
-	id     string
-	params []SDParam
+	Id     string
+	Params []SDParam
 }
 
 /*
  * STRUCTURED-DATA = NILVALUE / 1*SD-ELEMENT
  */
 type StrctData struct {
-	elements []SDElement
+	Elements []SDElement
 }
 
 /*
@@ -45,6 +45,6 @@ type StrctData struct {
  */
 type Message struct {
 	Header Header
-	SData  StrctData
+	SData  *StrctData
 	RawMsg []byte
 }

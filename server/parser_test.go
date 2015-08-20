@@ -92,6 +92,9 @@ func TestParseMessage(t *testing.T) {
 	fmt.Println()
 
 	msg, err := Parse(buf)
+
+	fmt.Println("** ", msg)
+
 	if err != nil {
 		t.Errorf("Message parsing should not fail", err)
 	}
@@ -113,6 +116,7 @@ func TestParseMessage(t *testing.T) {
 	buf.Write(data)
 
 	msg, err = Parse(buf)
+	fmt.Println("** ", msg)
 	if msg.IsUtf8 {
 		t.Errorf("Message data must NOT be parsed as UTF8")
 	}

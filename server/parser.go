@@ -40,6 +40,18 @@ func Parse(buf *bytes.Buffer) (*sysmsg.Message, error) {
 
 	msg := &sysmsg.Message{header, sd, nil, false}
 
+	if sd == nil {
+		spChar, _, err := buf.ReadRune()
+		if err == io.EOF {
+			return msg, nil
+		}
+
+		//there should be a space char
+		if spChar != sysmsg.SP_VAL_BYTE {
+			return nil, BadMsgData
+		}
+	}
+
 	data, err := readRawMsgBytes(buf)
 	if err != nil {
 		return nil, err
@@ -59,16 +71,6 @@ func Parse(buf *bytes.Buffer) (*sysmsg.Message, error) {
 }
 
 func readRawMsgBytes(buf *bytes.Buffer) ([]byte, error) {
-	spChar, _, err := buf.ReadRune()
-	if err == io.EOF {
-		return nil, nil
-	}
-
-	// see if there is a space char
-	if spChar != ' ' {
-		return nil, BadMsgData
-	}
-
 	nilChar, _, err := buf.ReadRune()
 	if err == io.EOF {
 		return nil, nil
@@ -130,7 +132,7 @@ loop:
 			//fmt.Println("begin SData")
 			readSData = false
 			endSData = false
-			id, err := parseSDName(buf, ' ')
+			id, err := parseSDName(buf, sysmsg.SP_VAL_BYTE)
 			//fmt.Println("Parsed ID ", id)
 			if err != nil {
 				return sData, err
@@ -141,7 +143,7 @@ loop:
 			readParam = true
 			break
 
-		case startChar == ' ' || readParam:
+		case startChar == sysmsg.SP_VAL_BYTE || readParam:
 			//fmt.Println("begin SData SP")
 
 			// step back one char
@@ -341,11 +343,10 @@ func ParseHeader(buf *bytes.Buffer) (sysmsg.Header, error) {
 	return sysmsg.Header{pri, ver, timestamp, hostName, appName, procId, msgId}, nil
 }
 
-func parseTime(buf *bytes.Buffer) (time.Time, error) {
-	var t time.Time
+func parseTime(buf *bytes.Buffer) (*time.Time, error) {
 	timestamp, _ := getToken(buf)
 	if len(timestamp) == 0 {
-		return t, nil
+		return nil, nil
 	}
 
 	dotPos := strings.Index(timestamp, ".")
@@ -356,22 +357,22 @@ func parseTime(buf *bytes.Buffer) (time.Time, error) {
 		}
 
 		if dotPos > zPos {
-			return t, TimeMillisErr
+			return nil, TimeMillisErr
 		}
 
 		millis := timestamp[dotPos+1 : zPos]
 
 		if len(millis) > 6 {
-			return t, TimeNanoErr
+			return nil, TimeNanoErr
 		}
 	}
 
-	t, err := time.Parse(time.RFC3339, timestamp)
-	return t, err
+	t, err := time.Parse(sysmsg.SYSLOG_TIME_FORMAT, timestamp)
+	return &t, err
 }
 
 func getToken(buf *bytes.Buffer) (string, error) {
-	token, err := buf.ReadString(' ')
+	token, err := buf.ReadString(sysmsg.SP_VAL_BYTE)
 
 	//if err == io.EOF {
 	//	panic("EOF while trying to read token")
@@ -380,7 +381,7 @@ func getToken(buf *bytes.Buffer) (string, error) {
 	token = strings.TrimSpace(token)
 
 	// check if the value is nil
-	if strings.EqualFold(token, "-") {
+	if strings.EqualFold(token, sysmsg.NIL_VAL_STR) {
 		return "", err
 	}
 

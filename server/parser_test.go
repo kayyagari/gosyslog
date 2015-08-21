@@ -25,7 +25,7 @@ func TestParseValidHeader(t *testing.T) {
 		t.Errorf("Version didn't match")
 	}
 
-	expected, _ := time.Parse(time.RFC3339, "2003-10-11T22:14:15.003Z")
+	expected, _ := time.Parse(sysmsg.SYSLOG_TIME_FORMAT, "2003-10-11T22:14:15.003Z")
 	if header.Timestamp.Unix() != expected.Unix() {
 		t.Errorf("Time didn't match")
 	}
@@ -93,7 +93,7 @@ func TestParseMessage(t *testing.T) {
 
 	msg, err := Parse(buf)
 
-	fmt.Println("** ", msg)
+	//fmt.Println("** ", msg)
 
 	if err != nil {
 		t.Errorf("Message parsing should not fail", err)
@@ -107,7 +107,7 @@ func TestParseMessage(t *testing.T) {
 		t.Errorf("Message data must be parsed as UTF8")
 	}
 
-	if bytes.Compare(msg.RawMsg, data) != 0 {
+	if !bytes.Equal(msg.RawMsg, data) {
 		t.Errorf("Raw message data is not identical")
 	}
 
@@ -115,10 +115,52 @@ func TestParseMessage(t *testing.T) {
 	buf = bytes.NewBufferString(headerAndSd)
 	buf.Write(data)
 
+	dataCopy := buf.Bytes()
+
 	msg, err = Parse(buf)
-	fmt.Println("** ", msg)
+	//fmt.Println("** ", msg)
 	if msg.IsUtf8 {
 		t.Errorf("Message data must NOT be parsed as UTF8")
+	}
+
+	if !bytes.Equal(msg.RawMsg, data) {
+		t.Errorf("Raw message data is not identical")
+	}
+
+	serialized := msg.Bytes()
+
+	fmt.Println("original len ", len(dataCopy))
+	fmt.Println("serialized len ", len(serialized))
+	if !bytes.Equal(dataCopy, serialized) {
+		fmt.Println("SERI ", string(serialized))
+		fmt.Println("ORIG ", string(dataCopy))
+		t.Errorf("Incorrect serialization of message")
+	}
+}
+
+func TestParseMessageWithSD(t *testing.T) {
+	headerAndSd := "<34>1 2003-10-11T22:14:15.003Z localhost su 1 ID47 [sid k=\"v\"] "
+	buf := bytes.NewBufferString(headerAndSd)
+	bom := []byte{0xEF, 0xBB, 0xBF}
+	buf.Write(bom)
+
+	data := []byte("abc")
+	buf.Write(data)
+
+	msg, err := Parse(buf)
+
+	fmt.Println("** ", msg)
+
+	if err != nil {
+		t.Errorf("Message parsing should not fail", err)
+	}
+
+	if msg == nil {
+		t.Errorf("Message parsing failed")
+	}
+
+	if !msg.IsUtf8 {
+		t.Errorf("Message data must be parsed as UTF8")
 	}
 
 	if bytes.Compare(msg.RawMsg, data) != 0 {

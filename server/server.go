@@ -10,7 +10,12 @@ import (
 var maxLen int = 1024
 
 func Start(host string) {
-	listener, err := net.Listen("udp", host)
+	startTCP(host)
+}
+
+func startTCP(host string) {
+	fmt.Println("Starting TCP listener...")
+	listener, err := net.Listen("tcp", host)
 	if err != nil {
 		fmt.Println("Error while listening at host", err.Error())
 		os.Exit(2)
@@ -18,9 +23,12 @@ func Start(host string) {
 
 	for {
 		conn, err := listener.Accept()
+
 		if err != nil {
+			fmt.Println("Failed to accept connection ", err.Error)
 			continue
 		}
+
 		go handleClient(conn)
 	}
 }
